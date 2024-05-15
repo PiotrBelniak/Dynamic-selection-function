@@ -1,10 +1,10 @@
-CREATE OR REPLACE NONEDITIONABLE PACKAGE BODY "PIOTR"."DYNAMIC_SELECTION_PKG" 
+ CREATE OR REPLACE NONEDITIONABLE PACKAGE BODY "PIOTR"."DYNAMIC_SELECTION_PKG" 
 IS
     query_cursor PLS_INTEGER;
     nazwy_kolumn varchar2_100_ntt;/*nazwy kolumn wyciagniete z data dictionary*/
     typy_kolumn varchar2_100_ntt;/*typy danych kolumn wyciagniete z data dictionary*/
     dlugosci_kolumn number_ntt;/*dlugosci kolumn wyciagniete z data dictionary*/
-    lista_kolumn varchar2_100_ntt:=varchar2_100_ntt();/*lista kolumn z inputu uÂ¿ytkownika do gÂ³Ã³wnego programu*/
+    lista_kolumn varchar2_100_ntt:=varchar2_100_ntt();/*lista kolumn z inputu u¿ytkownika do g³ównego programu*/
     
     procedure dynamic_select(tabela VARCHAR2, kolumny VARCHAR2,warunki varchar2_100_ntt DEFAULT NULL,wartosci_warunku varchar2_100_ntt DEFAULT NULL)
     IS
@@ -63,10 +63,7 @@ IS
         
         prepare_query(sql_string,wartosci_warunku);
         
-        DBMS_OUTPUT.PUT_LINE(sql_string);
-        
         show_result;
-        DBMS_SQL.CLOSE_CURSOR(dynamic_selection_pkg.query_cursor);
     EXCEPTION
         WHEN missing_value THEN
             DBMS_OUTPUT.PUT_LINE('Predicate nor predicate value can be null');
@@ -101,11 +98,12 @@ IS
         licznik NUMBER :=1;
         illegal_delimeters EXCEPTION;
         tablecolumn_list varchar2_100_ntt;
+        temporary_text VARCHAR2(100);
     BEGIN
         IF REGEXP_REPLACE(REGEXP_REPLACE(kolumny ,'[/,/./;/:]'),'\w') IS NOT NULL THEN
             raise illegal_delimeters;
         END IF;
-        SELECT column_name BULK COLLECT INTO tablecolumn_list from user_tab_columns where table_name = tabela;
+        SELECT column_name BULK COLLECT INTO tablecolumn_list from user_tab_columns where table_name = UPPER(tabela);
         /*check, if there are any delimiters. If not, fill collection with only one item*/
         IF REGEXP_INSTR(kolumny, '[/,/./;/:]{1}\w*',1,licznik) = 0 THEN
             dynamic_selection_pkg.lista_kolumn.EXTEND;
@@ -119,7 +117,8 @@ IS
                 dynamic_selection_pkg.lista_kolumn(dynamic_selection_pkg.lista_kolumn.LAST) := UPPER(SUBSTR(kolumny, REGEXP_INSTR(kolumny, '[/,/./;/:]{1}\w*',1,licznik,0)+1,REGEXP_INSTR(kolumny, '[/,/./;/:]{1}\w*',1,licznik,1)-REGEXP_INSTR(kolumny, '[/,/./;/:]{1}\w*',1,licznik,0)-1));
                 licznik :=licznik+1;
             END LOOP;
-        END IF;          
+        END IF;      
+        
         IF dynamic_selection_pkg.lista_kolumn SUBMULTISET OF tablecolumn_list THEN
             ret_val :='VALID';
         ELSE
@@ -135,9 +134,9 @@ IS
     IS
         sql_string VARCHAR2(2000);
     BEGIN
-        sql_string := 'SELECT column_name, data_type, data_length from user_tab_columns where table_name = ''' || tabela || ''' and column_name IN (';
+        sql_string := 'SELECT column_name, data_type, data_length from user_tab_columns where table_name = ''' || UPPER(tabela) || ''' and column_name IN (';
         FOR indx IN dynamic_selection_pkg.lista_kolumn.FIRST..dynamic_selection_pkg.lista_kolumn.LAST LOOP
-            sql_string:=sql_string || '''' || dynamic_selection_pkg.lista_kolumn(indx) || ''',';
+            sql_string:=sql_string || '''' || UPPER(dynamic_selection_pkg.lista_kolumn(indx)) || ''',';
         END LOOP;
         sql_string:=SUBSTR(sql_string,1,LENGTH(sql_string)-1) || ')';
         EXECUTE IMMEDIATE sql_string BULK COLLECT INTO dynamic_selection_pkg.nazwy_kolumn,dynamic_selection_pkg.typy_kolumn,dynamic_selection_pkg.dlugosci_kolumn; 
@@ -205,60 +204,9 @@ IS
         linia_tekstu VARCHAR2(1000);
     BEGIN
         id_egzekucji:=DBMS_SQL.EXECUTE(dynamic_selection_pkg.query_cursor);
-        
-        LOOP
-            id_egzekucji:=DBMS_SQL.FETCH_ROWS(dynamic_selection_pkg.query_cursor);
-            EXIT WHEN id_egzekucji = 0;
-            
-            IF DBMS_SQL.LAST_ROW_COUNT = 1 THEN
-                FOR indx IN dynamic_selection_pkg.nazwy_kolumn.FIRST..dynamic_selection_pkg.nazwy_kolumn.LAST LOOP
-                    IF dynamic_selection_pkg.typy_kolumn(indx) = 'VARCHAR2' OR dynamic_selection_pkg.typy_kolumn(indx) = 'CHAR' THEN
-                        linia_tekstu := linia_tekstu || RPAD(dynamic_selection_pkg.nazwy_kolumn(indx),GREATEST(dynamic_selection_pkg.dlugosci_kolumn(indx),LENGTH(dynamic_selection_pkg.nazwy_kolumn(indx))));
-                    ELSE
-                        linia_tekstu := linia_tekstu || RPAD(dynamic_selection_pkg.nazwy_kolumn(indx),GREATEST(15,LENGTH(dynamic_selection_pkg.nazwy_kolumn(indx))));
-                    END IF;
-                END LOOP;
-                DBMS_OUTPUT.PUT_LINE(RPAD(' ',length(linia_tekstu),'-'));
-                DBMS_OUTPUT.PUT_LINE(RPAD(' ',length(linia_tekstu),'-'));
-                DBMS_OUTPUT.PUT_LINE(linia_tekstu);
-                DBMS_OUTPUT.PUT_LINE(RPAD(' ',length(linia_tekstu),'-'));
-            END IF;
-            linia_tekstu:=row_valuation;
-            DBMS_OUTPUT.PUT_LINE(linia_tekstu);
-        END LOOP;
+        DBMS_SQL.RETURN_RESULT(dynamic_selection_pkg.query_cursor);
 
     END show_result;
-    
-    function row_valuation RETURN VARCHAR2 ACCESSIBLE BY(procedure show_result)
-    IS
-        rezultat VARCHAR2(1000);
-        number_var NUMBER;
-        char_var VARCHAR(1000);
-        date_var DATE;
-        blob_var BLOB;
-        clob_var CLOB;
-    BEGIN
-        FOR indx IN dynamic_selection_pkg.typy_kolumn.FIRST..dynamic_selection_pkg.typy_kolumn.LAST LOOP
-            CASE dynamic_selection_pkg.typy_kolumn(indx)
-                WHEN 'NUMBER' THEN 
-                    DBMS_SQL.COLUMN_VALUE(dynamic_selection_pkg.query_cursor,indx,number_var);
-                    char_var:=RPAD(TO_CHAR(number_var),GREATEST(15,LENGTH(dynamic_selection_pkg.nazwy_kolumn(indx))));
-                WHEN 'VARCHAR2' THEN 
-                    DBMS_SQL.COLUMN_VALUE(dynamic_selection_pkg.query_cursor,indx,char_var);
-                    char_var:=RPAD(char_var,GREATEST(dynamic_selection_pkg.dlugosci_kolumn(indx),LENGTH(dynamic_selection_pkg.nazwy_kolumn(indx))));
-                WHEN 'DATE' THEN 
-                    DBMS_SQL.COLUMN_VALUE(dynamic_selection_pkg.query_cursor,indx,date_var);
-                    char_var:=RPAD(TO_CHAR(date_var,'DD.MM.RRRR'),GREATEST(15,LENGTH(dynamic_selection_pkg.nazwy_kolumn(indx))));
-                WHEN 'BLOB' THEN 
-                    DBMS_SQL.COLUMN_VALUE(dynamic_selection_pkg.query_cursor,indx,blob_var);
-                WHEN 'CLOB' THEN 
-                    DBMS_SQL.COLUMN_VALUE(dynamic_selection_pkg.query_cursor,indx,clob_var);
-            END CASE;
-            
-            rezultat:= rezultat || char_var;
-        END LOOP;          
-        return rezultat;
-    END row_valuation;
     
 END dynamic_selection_pkg;
 
