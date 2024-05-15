@@ -4,7 +4,7 @@ IS
     nazwy_kolumn varchar2_100_ntt;/*nazwy kolumn wyciagniete z data dictionary*/
     typy_kolumn varchar2_100_ntt;/*typy danych kolumn wyciagniete z data dictionary*/
     dlugosci_kolumn number_ntt;/*dlugosci kolumn wyciagniete z data dictionary*/
-    lista_kolumn varchar2_100_ntt:=varchar2_100_ntt();/*lista kolumn z inputu u¿ytkownika do g³ównego programu*/
+    lista_kolumn varchar2_100_ntt:=varchar2_100_ntt();/*lista kolumn z inputu uÂ¿ytkownika do gÂ³Ã³wnego programu*/
     
     procedure dynamic_select(tabela VARCHAR2, kolumny VARCHAR2,warunki varchar2_100_ntt DEFAULT NULL,wartosci_warunku varchar2_100_ntt DEFAULT NULL)
     IS
@@ -87,7 +87,7 @@ IS
         table_list varchar2_100_ntt;
     BEGIN
         SELECT table_name BULK COLLECT INTO table_list FROM USER_TABLES;
-        IF tabela MEMBER OF table_list THEN
+        IF UPPER(tabela) MEMBER OF table_list THEN
             ret_val:='VALID';
         ElSE
             ret_val:='INVALID';
