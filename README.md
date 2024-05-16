@@ -1,6 +1,6 @@
 # Dynamic selection
 ## Usage
-This function is the PL\SQL implementation of select statement with one table and unknown number of columns and predicates using DBMS_SQL built-in package.  
+This function is the PL/SQL implementation of select statement with one table and unknown number of columns and predicates using DBMS_SQL built-in package.  
 >[!NOTE]
 >Currently only conjuction of equality predicate is supported.
 
@@ -8,7 +8,7 @@ This function is the PL\SQL implementation of select statement with one table an
 Package called DYNAMIC_SELECTION_PKG has everything that is required for function to work properly.
 
 ## How to use function
-We call the function by specifying table , column names delimited by comma, 
+We call the function by specifying table , column names delimited by comma, predicates specified in dynamic_selection_pkg.varchar2_100_ntt collection and predicate values specified in dynamic_selection_pkg.varchar2_100_ntt collection type.
 ```bash
 call dynamic_selection_pkg.dynamic_select('table name','column name(s)'
     ,dynamic_selection_pkg.varchar2_100_ntt('predicate nr1','predicate nr2',...,'predicate nr n')
